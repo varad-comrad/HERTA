@@ -17,6 +17,11 @@ class OTO:
     '''
     The tracker class which the user will interact with. Configures the settings for the tracker and tracks the objects in the video.
     '''
+    
+    #list of supported pretrained models (for now)
+    supported_models = 'yolo',
+    models = YOLO,
+
     def __init__(self, video,
                        classes, 
                        max_age=20,
@@ -26,10 +31,10 @@ class OTO:
                        language='en'):
         
         import pygame
-        if detection_model == 'yolo':
-            self.detection_model = YOLO('yolov8n.pt')
-        else:
-            raise NotImplementedError('Model not yet implemented.')
+        if isinstance(detection_model, str):
+            if detection_model not in self.supported_models:
+                raise NotImplementedError('Model not yet implemented.')
+            self.detection_model = self.models[self.supported_models.index(detection_model)]('yolov8n.pt') #TODO: make it automatically get the correct file
         self.classes = classes
         self.cap = video
         self.iou_threshold = iou_threshold
@@ -46,6 +51,12 @@ class OTO:
 
     def legend(self, flag=True):
         self._legend = flag
+    
+    def _write_label(self, img, text, coord, conf, color, font_scale=0.5, thickness=1):
+        x, y = coord
+        cv2.rectangle(img, (x,y-20), (x+100,y), color, -1)
+        cv2.putText(img, text, (x,y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255,255,255), thickness, cv2.LINE_AA)
+        cv2.putText(img, str(conf), (x,y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0,0,0), thickness, cv2.LINE_AA)
 
     def init(self):
         self.tracker = Sort(max_age=self.max_age, min_hits=self.min_hits, iou_threshold=self.iou_threshold)
@@ -73,7 +84,8 @@ class OTO:
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 print(resultado)
             try:
-                cv2.imshow("Image", img)
+                cv2.imshow(f"Image", img)
+                
             except:
                 break
             cv2.waitKey(1)
