@@ -1,5 +1,3 @@
-from collections import defaultdict
-import math
 from typing import Self
 import cv2
 from ultralytics import YOLO
@@ -136,7 +134,7 @@ class OTO:
                     x1, y1, x2, y2 = box.xyxy[0]
                     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                     cv2.rectangle(img, (x1, y1), (x2, y2), self.bbox_color, self.thickness)
-                    conf = math.ceil((box.conf[0].item()*100))/100
+                    conf = round(box.conf[0].item(), 2)
                     confs = np.append(confs, [conf])
                     if self._legend:
                         self._write_label(img, self.cls[int(box.cls[0].item())], (x1,y1), round(conf, 2), self.bbox_color)
