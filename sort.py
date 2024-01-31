@@ -1,6 +1,6 @@
 import numpy as np
 from kalman import KalmanBoxTracker
-from utils2 import *
+from utils2 import detection_to_trackers
 
 class Sort(object):
 
@@ -16,6 +16,7 @@ class Sort(object):
         Updates the state of the trackers on a new frame of detections.
         dets: argument on the form [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...], where each index is a detection.
         '''
+        #TODO: Figure out a way to transport the conf value to the return of the function (conf = dets[:, -1]) and the name of the class of each Kalman filter
 
         self.frame_count += 1
         trks = np.zeros((len(self.trackers), 5))
