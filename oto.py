@@ -1,3 +1,4 @@
+from collections import defaultdict
 import math
 from typing import Self
 import cv2
@@ -49,8 +50,8 @@ class OTO:
         self.lang = language
         self.max_age = max_age
         self.min_hits = min_hits
-        self._legend = legend
-        self._counter = counter
+        self.legend(legend)
+        self.enable_counter(counter)
         self.thickness = thickness
         self.bbox_color = bbox_color
 
@@ -62,6 +63,8 @@ class OTO:
         return self
     
     def enable_counter(self, flag=True) -> Self:
+        if not self.classes and flag:
+            raise ValueError('Classes must be set to enable the counter.')
         self._counter = flag
         return self
 
@@ -69,7 +72,7 @@ class OTO:
         '''
             Returns the approximate frames per second of the video
         '''
-        return 1 / (time.perf_counter() - self._start_loop_timer)
+        return round(1 / (time.perf_counter() - self._start_loop_timer))
     
     def _write_fps(self, img, color=(0,0,0), font_scale=0.5, thickness=1):
         '''
@@ -81,16 +84,33 @@ class OTO:
         '''
             Writes the label and confidence of each detected object
         '''
+        # TODO: Experiment with parameters to make the labels better looking
         x, y = coord
-        cv2.rectangle(img, (x,y-20), (x+100,y), color, -1)
+        cv2.rectangle(img, (x,y-20), (x+100+4*len(text),y), color, -1)
         cv2.putText(img, text, (x+10,y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255,255,255), thickness, cv2.LINE_AA)
-        cv2.putText(img, str(conf), (x+55,y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0,0,0), thickness, cv2.LINE_AA)
+        cv2.putText(img, str(conf), (x+65+ len(text),y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0,0,0), thickness, cv2.LINE_AA)
 
-    def _write_counter(self, img, color=(0,0,0), font_scale=0.5, thickness=1):
+    def _write_counter(self, img, classes, rect_size=None, color=(0, 0, 0), font_scale=0.5, thickness=-1):
         '''
             Writes the counter of total objects detected
         '''
-        pass
+        if rect_size is None:
+            rect_size = (200, len(self.classes)*25 + 50)
+        copy = img.copy()
+        x, y = img.shape[1], 0  # Top-right corner coordinates
+        bottom_left = (x - rect_size[0], y + rect_size[1])
+
+        classes_dict = {c: np.count_nonzero(classes == c) for c in self.classes}
+        cv2.rectangle(copy, (x, y), bottom_left, color, thickness)
+        
+        cv2.putText(copy, "Classes detected", (x - rect_size[0] + 10, y + 20), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
+        y+=40
+        
+        for i, (key, value) in enumerate(classes_dict.items()):
+            cv2.putText(copy, f"{key}: {value}", (x - rect_size[0] + 10, y + 10*(i+1)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
+            y += 15
+        cv2.addWeighted(copy, 0.5, img, 0.5, 0, img)
+
 
     def init(self):
         self.tracker = Sort(max_age=self.max_age, min_hits=self.min_hits, iou_threshold=self.iou_threshold)
@@ -106,6 +126,8 @@ class OTO:
                 break
             results = self.detection_model(img, stream=True)
             detections = np.empty((0,5))
+            classes = np.empty((0,1))
+            confs = np.empty((0,1))
             for r in results:
                 boxes = r.boxes
                 for box in boxes:
@@ -114,21 +136,23 @@ class OTO:
                     x1, y1, x2, y2 = box.xyxy[0]
                     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                     cv2.rectangle(img, (x1, y1), (x2, y2), self.bbox_color, self.thickness)
+                    conf = math.ceil((box.conf[0].item()*100))/100
+                    confs = np.append(confs, [conf])
                     if self._legend:
-                        self._write_label(img, self.cls[int(box.cls[0].item())], (x1,y1), round(box.conf[0].item(), 2), self.bbox_color)
+                        self._write_label(img, self.cls[int(box.cls[0].item())], (x1,y1), round(conf, 2), self.bbox_color)
                     w, h = x2-x1, y2-y1
-                    conf = math.ceil((box.conf[0]*100))/100
                     detections = np.append(detections, [[x1, y1, x2, y2, 0]], axis=0)
-            resultsTracker = self.tracker.update(detections)
+                    classes = np.append(classes, [self.cls[int(box.cls[0].item())]])
+            resultsTracker = self.tracker.update(detections, classes, confs)
             for resultado in resultsTracker:
                 x1, y1, x2, y2, id = resultado
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-            try:
-                self._write_fps(img)
-                if self._counter:
-                    self._write_counter(img)
-                cv2.imshow(f"Image", img)
-                
-            except:
-                break
+
+            self._write_fps(img)
+            print(classes)
+            if self._counter:
+                self._write_counter(img, classes)
+
+            cv2.imshow(f"Image", img)
+
             cv2.waitKey(1)

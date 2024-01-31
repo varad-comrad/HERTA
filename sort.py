@@ -1,8 +1,13 @@
+from collections import defaultdict
 import numpy as np
 from kalman import KalmanBoxTracker
 from utils2 import detection_to_trackers
 
+
 class Sort(object):
+    '''
+    This class represents the SORT algorithm for multi-object tracking.
+    '''
 
     def __init__(self, max_age=1, min_hits=3, iou_threshold=0.3):
         self.max_age = max_age
@@ -11,12 +16,20 @@ class Sort(object):
         self.trackers = []
         self.frame_count = 0
 
-    def update(self, dets=np.empty((0, 5))):
+    def get_classes(self):
+        '''
+        Returns the classes of the Kalman filters
+        '''
+        self.classes = defaultdict(lambda: 0)
+        for t in self.trackers:
+            self.classes[t.get_class()] += 1
+        # print(dict(self.classes.items()))
+
+    def update(self, dets=np.empty((0, 5)), classes=np.empty((0, 1)), confs=np.empty((0, 1))):
         '''
         Updates the state of the trackers on a new frame of detections.
         dets: argument on the form [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...], where each index is a detection.
         '''
-        #TODO: Figure out a way to transport the conf value to the return of the function (conf = dets[:, -1]) and the name of the class of each Kalman filter
 
         self.frame_count += 1
         trks = np.zeros((len(self.trackers), 5))
@@ -47,11 +60,14 @@ class Sort(object):
 
         # Updates the Kalman filters associated with the trackers
         for m in matched:
+            if confs[m[0]] > self.trackers[m[1]].conf:
+                self.trackers[m[1]].conf = confs[m[0]]
+                self.trackers[m[1]].cls = classes[m[0]]
             self.trackers[m[1]].update(dets[m[0], :])
 
         # Creates new trackers for unmatched detections
         for i in unmatched_dets:
-            trk = KalmanBoxTracker(dets[i, :])
+            trk = KalmanBoxTracker(dets[i, :], classes[i], confs[i])
             self.trackers.append(trk)
 
         counter = len(self.trackers)
@@ -72,6 +88,7 @@ class Sort(object):
             if trk.time_since_update > self.max_age:
                 self.trackers.pop(counter)
 
+        self.get_classes()
         if not not ret:
             return np.concatenate(ret)
         return np.empty((0, 5))

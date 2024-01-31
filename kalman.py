@@ -3,11 +3,13 @@ from utils2 import bbox_to_z, z_to_bbox
 from filterpy.kalman import KalmanFilter 
 
 class KalmanBoxTracker:
+    '''
+    This class represents the internal state of individual tracked objects observed as bbox.
+    '''
+    
     cnt = 0
-    '''
-    This class represents the internel state of individual tracked objects observed as bbox.
-    '''
-    def __init__(self,bbox, dim_x=7, dim_z=4):
+
+    def __init__(self,bbox, cls='unknown', conf=0, dim_x=7, dim_z=4):
         '''
         For this particular problem, the X dimensions are:
             0) x-coordinate of the center: Represents the horizontal position of the center of the bounding box.
@@ -19,7 +21,9 @@ class KalmanBoxTracker:
             6) Velocity scale: Represents the rate of change of the size or area of the bounding box.
         That can be concluded by the F matrix 
         '''
-        self.kf = KalmanFilter(dim_x=7, dim_z=4) 
+        self.kf = KalmanFilter(dim_x=7, dim_z=4)
+        self.cls = cls 
+        self.conf = conf
         self.kf.F = np.array([[1,0,0,0,1,0,0],[0,1,0,0,0,1,0],[0,0,1,0,0,0,1],[0,0,0,1,0,0,0],[0,0,0,0,1,0,0],[0,0,0,0,0,1,0],[0,0,0,0,0,0,1]])
         self.kf.H = np.array([[1,0,0,0,0,0,0],[0,1,0,0,0,0,0],[0,0,1,0,0,0,0],[0,0,0,1,0,0,0]])
         self.kf.R[2:,2:] *= 10.
@@ -71,3 +75,9 @@ class KalmanBoxTracker:
         Returns the current bounding box state (Xt).
         '''
         return z_to_bbox(self.kf.x)
+    
+    def get_class(self):
+        '''
+        Returns the class associated with the tracker.
+        '''
+        return self.cls
