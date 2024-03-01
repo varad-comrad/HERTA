@@ -1,6 +1,6 @@
 import cv2
-from oto import OTO
+from herta import HERTA
 
 video = cv2.VideoCapture('highway0.mp4')
 
-OTO(video,['truck', 'car', 'bus']).legend().enable_counter().run()
+HERTA(video,['truck', 'car', 'bus'], text_color=(0,0,0)).legend().enable_counter().run()

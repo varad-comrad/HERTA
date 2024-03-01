@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 
-class OTO:
+class HERTA:
     '''
     The tracker class which the user will interact with. Configures the settings for the tracker and tracks the objects in the video.
     '''
@@ -35,8 +35,10 @@ class OTO:
                        language='en',
                        legend=False,
                        counter=False,
-                       bbox_color=(255, 0, 255),
-                       thickness=3):
+                       bbox_color=(0, 255, 255),
+                       text_color=None,
+                       prob_color=None,
+                       thickness=1):
         
         import pygame
         self.detection_model = YOLO('yolov8n.pt') 
@@ -51,7 +53,9 @@ class OTO:
         self.legend(legend)
         self.enable_counter(counter)
         self.thickness = thickness
-        self.bbox_color = bbox_color
+        self.bbox_color = bbox_color 
+        self.text_color = text_color or (255,255,255)
+        self.prob_color = prob_color or (0,0,0)
 
     def set(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -85,8 +89,8 @@ class OTO:
         # TODO: Experiment with parameters to make the labels better looking
         x, y = coord
         cv2.rectangle(img, (x,y-20), (x+100+4*len(text),y), color, -1)
-        cv2.putText(img, text, (x+10,y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255,255,255), thickness, cv2.LINE_AA)
-        cv2.putText(img, str(conf), (x+65+ len(text),y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0,0,0), thickness, cv2.LINE_AA)
+        cv2.putText(img, text, (x+10,y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, self.text_color, thickness, cv2.LINE_AA)
+        cv2.putText(img, str(conf), (x+65+ len(text),y-5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, self.prob_color, thickness, cv2.LINE_AA)
 
     def _write_counter(self, img, classes, rect_size=None, color=(0, 0, 0), font_scale=0.5, thickness=-1):
         '''
